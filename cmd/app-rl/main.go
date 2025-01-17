@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/config"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/internal/infra/cache"
+	"github.com/tiagoncardoso/fc-pge-rate-limit/internal/infra/web"
+	"github.com/tiagoncardoso/fc-pge-rate-limit/internal/infra/web/handler"
 )
 
 func main() {
@@ -14,13 +15,18 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(envConf)
-
 	redisClient := cache.NewRedisConfig(envConf.RedisHost, envConf.RedisPort, envConf.RedisPass, ctx)
-	err = redisClient.Set("key", "{value}", envConf.BlockTime)
+	err = redisClient.Set("key", "value", envConf.BlockTime)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("Hello, World!")
+	timeHandler := handler.NewTimeApiHandler(ctx)
+
+	webServer := web.NewWebServer(envConf.AppPort)
+	webServer.Router.Use()
+
+	webServer.AddHandler("/time/greetings", "GET", timeHandler.GetActualDate)
+
+	webServer.Start()
 }

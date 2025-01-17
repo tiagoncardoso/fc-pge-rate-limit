@@ -3,6 +3,7 @@ module github.com/tiagoncardoso/fc-pge-rate-limit
 go 1.23.4
 
 require (
+	github.com/go-chi/chi/v5 v5.2.0
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/spf13/viper v1.19.0
 )
