@@ -1,2 +1,3 @@
 GET http://localhost:8080/time/greetings
 Content-Type: application/json
+API_KEY: xQxGOkwWAxhlaaHJorRnhMwpZ1q8xAlIFHnOkDoEqtNiB5NdYXINVthDbmQIyAE2UIIbYt1SqQ4Ych0MG9EJLftbulvm6gH5IqO9e18MWTyAwcmQkBD4ZW8OMvRgKxnu
