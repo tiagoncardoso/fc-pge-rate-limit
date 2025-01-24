@@ -33,6 +33,10 @@ func (r *RedisConfig) Get(key string) (string, error) {
 	return r.redisClient.Get(r.ctx, key).Result()
 }
 
+func (r *RedisConfig) Update(key string, value string) error {
+	return r.redisClient.SetXX(r.ctx, key, value, -1).Err()
+}
+
 func (r *RedisConfig) Delete(key string) error {
 	return r.redisClient.Del(r.ctx, key).Err()
 }
