@@ -16,7 +16,7 @@ func main() {
 		panic(err)
 	}
 
-	timeHandler := handler.NewTimeApiHandler(ctx)
+	timeHandler := handler.NewGreetingsHandler(ctx)
 
 	webServer := web.NewWebServer(envConf.AppPort)
 	webServer.Router.Use(middleware.RateLimiter(
@@ -25,7 +25,8 @@ func main() {
 		middleware.WithRedisCache(envConf.RedisHost, envConf.RedisPort, envConf.RedisPass, ctx),
 	))
 
-	webServer.AddHandler("/time/greetings", "GET", timeHandler.GetActualDate)
+	webServer.AddHandler("/time/greetings", "GET", timeHandler.GetDateAndGreetings)
+	webServer.AddHandler("/time/japanese-greetings", "GET", timeHandler.GetJapaneseDateAndGreetings)
 
 	webServer.Start()
 }
