@@ -14,6 +14,7 @@ type RateLimitOptions struct {
 	RateTimers    map[string]fcrl.RateTimer
 	RequestIp     string
 	RequestApiKey string
+	RequestRoute  string
 	CacheClient   cache.CacheInterface
 	Opts          []Option
 }
@@ -40,21 +41,38 @@ func (ro *RateLimitOptions) Handler(handler http.Handler) http.Handler {
 
 		ro.RequestApiKey = r.Header.Get("API_KEY")
 		ro.RequestIp = helpers.GetRequestIp(r)
+		ro.RequestRoute = r.URL.String()
 
 		for _, opt := range ro.Opts {
 			opt(ro)
 		}
 
-		if ro.RequestApiKey == "" || ro.RateTimers["token"].MaxRequestsPerSecond == 0 {
-			limiter := fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["ip"], "ip")
-			limiter.IsRateLimited(ro.RequestIp)
-		} else {
-			limiter := fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["token"], ro.RequestApiKey)
-			limiter.IsRateLimited(ro.RequestApiKey)
+		rateLimiter := ro.SetRateLimiter()
+		if rateLimiter {
+			// TODO: Se o rate limit for atingido, alterar o TTL do cache para o window time
+			// TODO: Precisa utilizar rota acessada para contabilizar o rate limit: um mesmo ip ou token pode acessar rotas diferentes dentro
+			// TODO: de um mesmo período de tempo
+			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+			return
 		}
 
 		handler.ServeHTTP(w, r)
 	})
+}
+
+func (ro *RateLimitOptions) SetRateLimiter() bool {
+	var limiter *fcrl.Limiter
+	var cacheKey string
+
+	if ro.RequestApiKey == "" || ro.RateTimers["token"].MaxRequestsPerSecond == 0 {
+		cacheKey = helpers.GenerateMD5Hash(ro.RequestIp + ro.RequestRoute)
+		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["ip"], cacheKey)
+	} else {
+		cacheKey = helpers.GenerateMD5Hash(ro.RequestApiKey + ro.RequestRoute)
+		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["token"], cacheKey)
+	}
+
+	return limiter.IsRateLimited()
 }
 
 func WithRateLimit(ipMaxRequestsPerSecond int, ipWindowTime time.Duration, tokenMaxRequestsPerSecond int, tokenWindowTime time.Duration) Option {

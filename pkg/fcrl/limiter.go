@@ -28,6 +28,7 @@ type Limiter struct {
 	CacheClient cache.CacheInterface
 	RateTimer   RateTimer
 	CacheData   CacheData
+	CacheKey    string
 }
 
 func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key string) *Limiter {
@@ -50,11 +51,12 @@ func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key strin
 		CacheClient: cacheClient,
 		RateTimer:   rateTimer,
 		CacheData:   cacheData,
+		CacheKey:    key,
 	}
 }
 
-func (l *Limiter) IsRateLimited(key string) bool {
-	if l.CacheData.Requests >= l.RateTimer.MaxRequestsPerSecond {
+func (l *Limiter) IsRateLimited() bool {
+	if l.CacheData.Requests > l.RateTimer.MaxRequestsPerSecond {
 		return true
 	}
 
@@ -65,11 +67,11 @@ func (l *Limiter) IsRateLimited(key string) bool {
 	}
 
 	if l.CacheData.Requests == 1 {
-		if err := l.CacheClient.Set(key, string(cacheDataJson), MINUTE); err != nil {
+		if err := l.CacheClient.Set(l.CacheKey, string(cacheDataJson), FIVE_MINUTES); err != nil {
 			rllog.Error(err.Error())
 		}
 	} else {
-		if err := l.CacheClient.Update(key, string(cacheDataJson)); err != nil {
+		if err := l.CacheClient.Update(l.CacheKey, string(cacheDataJson)); err != nil {
 			rllog.Error(err.Error())
 		}
 	}
