@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/cache"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/helpers"
@@ -18,9 +19,6 @@ type RateLimitOptions struct {
 	CacheClient   cache.CacheInterface
 	Opts          []Option
 }
-
-// TODO: RateLimiter baseado em API Key deve sobrepor o RateLimiter baseado em IP
-// TODO: Caso não haja parâmetros de redis, utilizar um cache em memória
 
 type Option func(rl *RateLimitOptions)
 
@@ -47,11 +45,8 @@ func (ro *RateLimitOptions) Handler(handler http.Handler) http.Handler {
 			opt(ro)
 		}
 
-		rateLimiter := ro.SetRateLimiter()
-		if rateLimiter {
+		if ro.tooManyRequests() {
 			// TODO: Se o rate limit for atingido, alterar o TTL do cache para o window time
-			// TODO: Precisa utilizar rota acessada para contabilizar o rate limit: um mesmo ip ou token pode acessar rotas diferentes dentro
-			// TODO: de um mesmo período de tempo
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
@@ -60,19 +55,25 @@ func (ro *RateLimitOptions) Handler(handler http.Handler) http.Handler {
 	})
 }
 
-func (ro *RateLimitOptions) SetRateLimiter() bool {
+func (ro *RateLimitOptions) tooManyRequests() bool {
 	var limiter *fcrl.Limiter
 	var cacheKey string
 
-	if ro.RequestApiKey == "" || ro.RateTimers["token"].MaxRequestsPerSecond == 0 {
+	cacheDetails := fmt.Sprintf("Route: %s :: IP: %s :: API Key: %s", ro.RequestRoute, ro.RequestIp, ro.RequestApiKey)
+
+	if ro.noApiToken() {
 		cacheKey = helpers.GenerateMD5Hash(ro.RequestIp + ro.RequestRoute)
-		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["ip"], cacheKey)
+		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["ip"], cacheKey, cacheDetails)
 	} else {
 		cacheKey = helpers.GenerateMD5Hash(ro.RequestApiKey + ro.RequestRoute)
-		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["token"], cacheKey)
+		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["token"], cacheKey, cacheDetails)
 	}
 
 	return limiter.IsRateLimited()
+}
+
+func (ro *RateLimitOptions) noApiToken() bool {
+	return ro.RequestApiKey == "" || ro.RateTimers["token"].MaxRequestsPerSecond == 0
 }
 
 func WithRateLimit(ipMaxRequestsPerSecond int, ipWindowTime time.Duration, tokenMaxRequestsPerSecond int, tokenWindowTime time.Duration) Option {
