@@ -82,8 +82,6 @@ func WithRateLimit(ipMaxRequestsPerSecond int, ipWindowTime time.Duration, token
 		rl.RateTimers["token"] = fcrl.RateTimer{MaxRequestsPerSecond: tokenMaxRequestsPerSecond, WindowTime: tokenWindowTime}
 
 		rllog.Info("WithRateLimit")
-		rllog.Info("TIP", rl.RequestIp)
-		rllog.Info("API Key", rl.RequestApiKey)
 	}
 }
 
@@ -92,7 +90,6 @@ func WithIPRateLimiter(ipMaxRequestsPerSecond int, ipWindowTime time.Duration) O
 		rl.RateTimers["ip"] = fcrl.RateTimer{MaxRequestsPerSecond: ipMaxRequestsPerSecond, WindowTime: ipWindowTime}
 
 		rllog.Info("WithIPRateLimiter")
-		rllog.Info("IP", rl.RequestIp)
 	}
 }
 
@@ -101,7 +98,6 @@ func WithApiKeyRateLimiter(tokenMaxRequestsPerSecond int, tokenWindowTime time.D
 		rl.RateTimers["token"] = fcrl.RateTimer{MaxRequestsPerSecond: tokenMaxRequestsPerSecond, WindowTime: tokenWindowTime}
 
 		rllog.Info("WithApiKeyRateLimiter")
-		rllog.Info("API Key", rl.RequestApiKey)
 	}
 }
 

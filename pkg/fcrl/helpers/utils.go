@@ -3,6 +3,8 @@ package helpers
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
+	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/rllog"
 	"net/http"
 	"strings"
 )
@@ -25,4 +27,16 @@ func GenerateMD5Hash(data string) string {
 	hash.Write([]byte(data))
 	hashSum := hash.Sum(nil)
 	return hex.EncodeToString(hashSum)
+}
+
+func ParseStructToString(data interface{}) string {
+	emptyData, _ := json.Marshal(struct{}{})
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		rllog.Error("Failed to marshal CacheData: " + err.Error())
+		return string(emptyData)
+	}
+
+	return string(jsonData)
 }

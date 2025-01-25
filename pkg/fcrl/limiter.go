@@ -3,6 +3,7 @@ package fcrl
 import (
 	"encoding/json"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/cache"
+	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/helpers"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/rllog"
 	"time"
 )
@@ -13,15 +14,21 @@ const (
 	FIVE_MINUTES = 5 * MINUTE
 )
 
+const (
+	RATE_LIMIT_NOT_EXCEEDED = iota
+	RATE_LIMIT_EXCEEDED
+)
+
 type RateTimer struct {
 	MaxRequestsPerSecond int
 	WindowTime           time.Duration
 }
 
 type CacheData struct {
-	TimeStamp int64  `json:"timestamp"`
-	Requests  int    `json:"requests"`
-	Details   string `json:"details"`
+	TimeStamp       int64  `json:"timestamp"`
+	Requests        int    `json:"requests"`
+	Details         string `json:"details"`
+	RateLimitStatus int    `json:"rate_limit_status"`
 }
 
 type Limiter struct {
@@ -38,10 +45,8 @@ func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key strin
 
 	err := json.Unmarshal([]byte(requestsStr), &cacheData)
 	if err != nil {
-		rllog.Info("No cache for this client: " + err.Error())
+		rllog.Info("No cache for this client request yet. It will be create now")
 	}
-
-	setCacheDataPayload(&cacheData, details)
 
 	return &Limiter{
 		CacheClient: cacheClient,
@@ -53,23 +58,32 @@ func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key strin
 }
 
 func (l *Limiter) IsRateLimited() bool {
-	if l.CacheData.Requests > l.RateTimer.MaxRequestsPerSecond {
-		// TODO: Update cache TTL to window time and rate limited
+	var cacheDataJson string
+
+	l.CacheData.Requests++
+	l.CacheData.Details = l.Details
+	l.CacheData.RateLimitStatus = RATE_LIMIT_NOT_EXCEEDED
+
+	if l.rateLimitExceeded() {
+		// TODO: Update cache TTL to window time
+		l.CacheData.RateLimitStatus = RATE_LIMIT_EXCEEDED
+		cacheDataJson = helpers.ParseStructToString(l.CacheData)
+
+		l.saveCache(cacheDataJson)
 		return true
 	}
 
-	cacheDataJson, err := json.Marshal(l.CacheData)
-	if err != nil {
-		rllog.Error("Failed to marshal CacheData: " + err.Error())
-		return false
+	if l.isFirstRequest() {
+		l.CacheData.TimeStamp = time.Now().Unix()
 	}
 
-	l.updateCache(string(cacheDataJson))
+	cacheDataJson = helpers.ParseStructToString(l.CacheData)
+	l.saveCache(cacheDataJson)
 
 	return false
 }
 
-func (l *Limiter) updateCache(cacheDataJson string) {
+func (l *Limiter) saveCache(cacheDataJson string) {
 	var err error
 
 	if l.isFirstRequest() {
@@ -87,13 +101,6 @@ func (l *Limiter) isFirstRequest() bool {
 	return l.CacheData.Requests <= 1
 }
 
-func setCacheDataPayload(cacheData *CacheData, details string) *CacheData {
-	if cacheData.Requests == 0 {
-		cacheData.TimeStamp = time.Now().Unix()
-	}
-
-	cacheData.Details = details
-	cacheData.Requests++
-
-	return cacheData
+func (l *Limiter) rateLimitExceeded() bool {
+	return l.CacheData.Requests > l.RateTimer.MaxRequestsPerSecond || l.CacheData.RateLimitStatus == RATE_LIMIT_EXCEEDED
 }
