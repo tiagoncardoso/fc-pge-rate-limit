@@ -20,26 +20,28 @@ const (
 )
 
 type RateTimer struct {
-	MaxRequestsPerSecond int
-	WindowTime           time.Duration
+	RateLimitBy time.Duration
+	MaxRequests int
+	WindowTime  int
 }
 
 type CacheData struct {
-	TimeStamp       int64  `json:"timestamp"`
-	Requests        int    `json:"requests"`
-	Details         string `json:"details"`
-	RateLimitStatus int    `json:"rate_limit_status"`
+	InitialTimeStamp int64  `json:"initial_timestamp"`
+	Requests         int    `json:"requests"`
+	Details          string `json:"details"`
+	RateLimitStatus  int    `json:"rate_limit_status"`
 }
 
 type Limiter struct {
-	CacheClient cache.CacheInterface
-	RateTimer   RateTimer
-	CacheData   CacheData
-	CacheKey    string
-	Details     string
+	CacheClient       cache.CacheInterface
+	RateTimer         RateTimer
+	CacheData         CacheData
+	CacheKey          string
+	Details           string
+	RateLimitAchieved bool
 }
 
-func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key string, details string) *Limiter {
+func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key string, details string, rateLimitBy time.Duration) *Limiter {
 	var cacheData CacheData
 	requestsStr, _ := cacheClient.Get(key)
 
@@ -48,48 +50,59 @@ func NewLimiter(cacheClient cache.CacheInterface, rateTimer RateTimer, key strin
 		rllog.Info("No cache for this client request yet. It will be create now")
 	}
 
+	rateTimer.RateLimitBy = rateLimitBy
+
 	return &Limiter{
-		CacheClient: cacheClient,
-		RateTimer:   rateTimer,
-		CacheData:   cacheData,
-		CacheKey:    key,
-		Details:     details,
+		CacheClient:       cacheClient,
+		RateTimer:         rateTimer,
+		CacheData:         cacheData,
+		CacheKey:          key,
+		Details:           details,
+		RateLimitAchieved: cacheData.RateLimitStatus == RATE_LIMIT_EXCEEDED,
 	}
 }
 
 func (l *Limiter) IsRateLimited() bool {
 	var cacheDataJson string
 
+	if l.RateLimitAchieved {
+		return true
+	}
+
 	l.CacheData.Requests++
 	l.CacheData.Details = l.Details
-	l.CacheData.RateLimitStatus = RATE_LIMIT_NOT_EXCEEDED
 
 	if l.rateLimitExceeded() {
-		// TODO: Update cache TTL to window time
 		l.CacheData.RateLimitStatus = RATE_LIMIT_EXCEEDED
 		cacheDataJson = helpers.ParseStructToString(l.CacheData)
 
-		l.saveCache(cacheDataJson)
+		l.saveCache(cacheDataJson, true)
 		return true
 	}
 
 	if l.isFirstRequest() {
-		l.CacheData.TimeStamp = time.Now().Unix()
+		l.CacheData.InitialTimeStamp = time.Now().Unix()
 	}
 
+	l.CacheData.RateLimitStatus = RATE_LIMIT_NOT_EXCEEDED
 	cacheDataJson = helpers.ParseStructToString(l.CacheData)
-	l.saveCache(cacheDataJson)
+	l.saveCache(cacheDataJson, false)
 
 	return false
 }
 
-func (l *Limiter) saveCache(cacheDataJson string) {
+func (l *Limiter) saveCache(cacheDataJson string, rateLimitAchieved bool) {
 	var err error
+	var ttl time.Duration = -1
+
+	if rateLimitAchieved {
+		ttl = time.Duration(l.RateTimer.WindowTime) * l.RateTimer.RateLimitBy
+	}
 
 	if l.isFirstRequest() {
-		err = l.CacheClient.Set(l.CacheKey, cacheDataJson, FIVE_MINUTES)
+		err = l.CacheClient.Set(l.CacheKey, cacheDataJson, l.RateTimer.RateLimitBy)
 	} else {
-		err = l.CacheClient.Update(l.CacheKey, cacheDataJson)
+		err = l.CacheClient.Update(l.CacheKey, cacheDataJson, ttl)
 	}
 
 	if err != nil {
@@ -102,5 +115,5 @@ func (l *Limiter) isFirstRequest() bool {
 }
 
 func (l *Limiter) rateLimitExceeded() bool {
-	return l.CacheData.Requests > l.RateTimer.MaxRequestsPerSecond || l.CacheData.RateLimitStatus == RATE_LIMIT_EXCEEDED
+	return l.CacheData.Requests > l.RateTimer.MaxRequests || l.CacheData.RateLimitStatus == RATE_LIMIT_EXCEEDED
 }

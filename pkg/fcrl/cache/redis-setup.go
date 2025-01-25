@@ -25,15 +25,18 @@ func NewRedisConfig(host string, port int, pass string, ctx context.Context) *Re
 	}
 }
 
-func (r *RedisConfig) Set(key string, value string, ttl int) error {
-	return r.redisClient.Set(r.ctx, key, value, time.Duration(ttl)*time.Second).Err()
+func (r *RedisConfig) Set(key string, value string, ttl time.Duration) error {
+	return r.redisClient.Set(r.ctx, key, value, ttl).Err()
 }
 
 func (r *RedisConfig) Get(key string) (string, error) {
 	return r.redisClient.Get(r.ctx, key).Result()
 }
 
-func (r *RedisConfig) Update(key string, value string) error {
+func (r *RedisConfig) Update(key string, value string, ttl time.Duration) error {
+	if ttl != -1 {
+		return r.redisClient.SetXX(r.ctx, key, value, ttl).Err()
+	}
 	return r.redisClient.SetXX(r.ctx, key, value, -1).Err()
 }
 

@@ -7,10 +7,11 @@ type EnvConfig struct {
 	RedisPort int    `mapstructure:"REDIS_PORT"`
 	RedisPass string `mapstructure:"REDIS_PWD"`
 
-	IpLimitRatePerSecond    int `mapstructure:"IP_LIMIT_RATE_PER_SECOND"`
-	TokenLimitRatePerSecond int `mapstructure:"TOKEN_LIMIT_RATE_PER_SECOND"`
-	IpBlockTime             int `mapstructure:"IP_BLOCK_TIME"`
-	TokenBlockTime          int `mapstructure:"TOKEN_BLOCK_TIME"`
+	RateLimitBy        string `mapstructure:"RATE_LIMIT_BY"`
+	IpLimitRate        int    `mapstructure:"IP_LIMIT_RATE"`
+	TokenLimitRate     int    `mapstructure:"TOKEN_LIMIT_RATE"`
+	IpWindowTime       int    `mapstructure:"IP_WINDOW_TIME"`
+	ApiTokenWindowTime int    `mapstructure:"API_TOKEN_WINDOW_TIME"`
 
 	AppPort string `mapstructure:"APP_PORT"`
 }

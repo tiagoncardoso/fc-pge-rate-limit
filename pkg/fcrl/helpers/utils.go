@@ -7,6 +7,7 @@ import (
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/rllog"
 	"net/http"
 	"strings"
+	"time"
 )
 
 func GetRequestIp(r *http.Request) string {
@@ -39,4 +40,16 @@ func ParseStructToString(data interface{}) string {
 	}
 
 	return string(jsonData)
+}
+
+func ParseStringToTime(timeType string) time.Duration {
+	switch timeType {
+	case "Hour":
+		return time.Hour
+	case "Minute":
+		return time.Minute
+
+	default:
+		return time.Second
+	}
 }

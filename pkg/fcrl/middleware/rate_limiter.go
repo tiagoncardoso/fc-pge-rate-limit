@@ -12,6 +12,7 @@ import (
 )
 
 type RateLimitOptions struct {
+	RateLimitBy   time.Duration
 	RateTimers    map[string]fcrl.RateTimer
 	RequestIp     string
 	RequestApiKey string
@@ -22,14 +23,15 @@ type RateLimitOptions struct {
 
 type Option func(rl *RateLimitOptions)
 
-func RateLimiter(opts ...Option) func(http.Handler) http.Handler {
-	return NewRateLimitOptions(opts...).Handler
+func RateLimiter(rateLimitBy string, opts ...Option) func(http.Handler) http.Handler {
+	return NewRateLimitOptions(rateLimitBy, opts...).Handler
 }
 
-func NewRateLimitOptions(opts ...Option) *RateLimitOptions {
+func NewRateLimitOptions(rateLimitBy string, opts ...Option) *RateLimitOptions {
 	return &RateLimitOptions{
-		RateTimers: make(map[string]fcrl.RateTimer),
-		Opts:       opts,
+		RateTimers:  make(map[string]fcrl.RateTimer),
+		RateLimitBy: helpers.ParseStringToTime(rateLimitBy),
+		Opts:        opts,
 	}
 }
 
@@ -46,7 +48,6 @@ func (ro *RateLimitOptions) Handler(handler http.Handler) http.Handler {
 		}
 
 		if ro.tooManyRequests() {
-			// TODO: Se o rate limit for atingido, alterar o TTL do cache para o window time
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
@@ -63,39 +64,39 @@ func (ro *RateLimitOptions) tooManyRequests() bool {
 
 	if ro.noApiToken() {
 		cacheKey = helpers.GenerateMD5Hash(ro.RequestIp + ro.RequestRoute)
-		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["ip"], cacheKey, cacheDetails)
+		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["ip"], cacheKey, cacheDetails, ro.RateLimitBy)
 	} else {
 		cacheKey = helpers.GenerateMD5Hash(ro.RequestApiKey + ro.RequestRoute)
-		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["token"], cacheKey, cacheDetails)
+		limiter = fcrl.NewLimiter(ro.CacheClient, ro.RateTimers["token"], cacheKey, cacheDetails, ro.RateLimitBy)
 	}
 
 	return limiter.IsRateLimited()
 }
 
 func (ro *RateLimitOptions) noApiToken() bool {
-	return ro.RequestApiKey == "" || ro.RateTimers["token"].MaxRequestsPerSecond == 0
+	return ro.RequestApiKey == "" || ro.RateTimers["token"].MaxRequests == 0
 }
 
-func WithRateLimit(ipMaxRequestsPerSecond int, ipWindowTime time.Duration, tokenMaxRequestsPerSecond int, tokenWindowTime time.Duration) Option {
+func WithRateLimit(ipMaxRequests int, ipWindowTime int, tokenMaxRequests int, tokenWindowTime int) Option {
 	return func(rl *RateLimitOptions) {
-		rl.RateTimers["ip"] = fcrl.RateTimer{MaxRequestsPerSecond: ipMaxRequestsPerSecond, WindowTime: ipWindowTime}
-		rl.RateTimers["token"] = fcrl.RateTimer{MaxRequestsPerSecond: tokenMaxRequestsPerSecond, WindowTime: tokenWindowTime}
+		rl.RateTimers["ip"] = fcrl.RateTimer{MaxRequests: ipMaxRequests, WindowTime: ipWindowTime}
+		rl.RateTimers["token"] = fcrl.RateTimer{MaxRequests: tokenMaxRequests, WindowTime: tokenWindowTime}
 
 		rllog.Info("WithRateLimit")
 	}
 }
 
-func WithIPRateLimiter(ipMaxRequestsPerSecond int, ipWindowTime time.Duration) Option {
+func WithIPRateLimiter(ipMaxRequests int, ipWindowTime int) Option {
 	return func(rl *RateLimitOptions) {
-		rl.RateTimers["ip"] = fcrl.RateTimer{MaxRequestsPerSecond: ipMaxRequestsPerSecond, WindowTime: ipWindowTime}
+		rl.RateTimers["ip"] = fcrl.RateTimer{MaxRequests: ipMaxRequests, WindowTime: ipWindowTime}
 
 		rllog.Info("WithIPRateLimiter")
 	}
 }
 
-func WithApiKeyRateLimiter(tokenMaxRequestsPerSecond int, tokenWindowTime time.Duration) Option {
+func WithApiKeyRateLimiter(tokenMaxRequests int, tokenWindowTime int) Option {
 	return func(rl *RateLimitOptions) {
-		rl.RateTimers["token"] = fcrl.RateTimer{MaxRequestsPerSecond: tokenMaxRequestsPerSecond, WindowTime: tokenWindowTime}
+		rl.RateTimers["token"] = fcrl.RateTimer{MaxRequests: tokenMaxRequests, WindowTime: tokenWindowTime}
 
 		rllog.Info("WithApiKeyRateLimiter")
 	}

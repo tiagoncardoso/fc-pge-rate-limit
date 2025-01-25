@@ -6,7 +6,6 @@ import (
 	"github.com/tiagoncardoso/fc-pge-rate-limit/internal/infra/web"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/internal/infra/web/handler"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/middleware"
-	"time"
 )
 
 func main() {
@@ -20,8 +19,9 @@ func main() {
 
 	webServer := web.NewWebServer(envConf.AppPort)
 	webServer.Router.Use(middleware.RateLimiter(
-		middleware.WithIPRateLimiter(envConf.IpLimitRatePerSecond, time.Duration(envConf.IpBlockTime)*time.Second),
-		middleware.WithApiKeyRateLimiter(envConf.TokenLimitRatePerSecond, time.Duration(envConf.TokenBlockTime)*time.Second),
+		envConf.RateLimitBy,
+		middleware.WithIPRateLimiter(envConf.IpLimitRate, envConf.IpWindowTime),
+		middleware.WithApiKeyRateLimiter(envConf.TokenLimitRate, envConf.ApiTokenWindowTime),
 		middleware.WithRedisCache(envConf.RedisHost, envConf.RedisPort, envConf.RedisPass, ctx),
 	))
 
