@@ -25,6 +25,13 @@ func NewRedisConfig(host string, port int, pass string, ctx context.Context) *Re
 	}
 }
 
+func NewRedisClientConfig(rdb *redis.Client, ctx context.Context) *RedisConfig {
+	return &RedisConfig{
+		redisClient: rdb,
+		ctx:         ctx,
+	}
+}
+
 func (r *RedisConfig) Set(key string, value string, ttl time.Duration) error {
 	return r.redisClient.Set(r.ctx, key, value, ttl).Err()
 }

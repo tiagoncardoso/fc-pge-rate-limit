@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"github.com/redis/go-redis/v9"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/cache"
 	"github.com/tiagoncardoso/fc-pge-rate-limit/pkg/fcrl/helpers"
@@ -48,7 +49,7 @@ func (ro *RateLimitOptions) Handler(handler http.Handler) http.Handler {
 		}
 
 		if ro.tooManyRequests() {
-			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+			http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
 			return
 		}
 
@@ -107,5 +108,11 @@ func WithRedisCache(redisHost string, redisPort int, redisPass string, ctx conte
 		rllog.Info("WithRedisCache")
 
 		rl.CacheClient = cache.NewRedisConfig(redisHost, redisPort, redisPass, ctx)
+	}
+}
+
+func WithRedisCacheClient(redisClient *redis.Client, ctx context.Context) Option {
+	return func(rl *RateLimitOptions) {
+		rl.CacheClient = cache.NewRedisClientConfig(redisClient, ctx)
 	}
 }
