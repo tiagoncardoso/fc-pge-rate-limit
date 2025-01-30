@@ -1,4 +1,13 @@
 services:
+  app:
+    build: .
+    container_name: rate-limit-app
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+
   redis:
     image: redis:alpine
     command: redis-server --requirepass password!
