@@ -107,12 +107,20 @@ func WithRedisCache(redisHost string, redisPort int, redisPass string, ctx conte
 	return func(rl *RateLimitOptions) {
 		rllog.Info("WithRedisCache")
 
-		rl.CacheClient = cache.NewRedisConfig(redisHost, redisPort, redisPass, ctx)
+		rl.CacheClient = cache.NewRedisCache(redisHost, redisPort, redisPass, ctx)
 	}
 }
 
 func WithRedisCacheClient(redisClient *redis.Client, ctx context.Context) Option {
 	return func(rl *RateLimitOptions) {
-		rl.CacheClient = cache.NewRedisClientConfig(redisClient, ctx)
+		rl.CacheClient = cache.NewRedisClientCache(redisClient, ctx)
+	}
+}
+
+func WithInMemoryCache(ctx context.Context) Option {
+	return func(rl *RateLimitOptions) {
+		rllog.Info("WithInMemoryCache")
+
+		rl.CacheClient = cache.NewMemoryCache(ctx)
 	}
 }
