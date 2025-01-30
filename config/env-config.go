@@ -9,7 +9,7 @@ type EnvConfig struct {
 
 	RateLimitBy        string `mapstructure:"RATE_LIMIT_BY"`
 	IpLimitRate        int    `mapstructure:"IP_LIMIT_RATE"`
-	TokenLimitRate     int    `mapstructure:"TOKEN_LIMIT_RATE"`
+	TokenLimitRate     int    `mapstructure:"API_TOKEN_LIMIT_RATE"`
 	IpWindowTime       int    `mapstructure:"IP_WINDOW_TIME"`
 	ApiTokenWindowTime int    `mapstructure:"API_TOKEN_WINDOW_TIME"`
 
