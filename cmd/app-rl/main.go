@@ -23,6 +23,7 @@ func main() {
 		middleware.WithIPRateLimiter(envConf.IpLimitRate, envConf.IpWindowTime),
 		middleware.WithApiKeyRateLimiter(envConf.TokenLimitRate, envConf.ApiTokenWindowTime),
 		middleware.WithRedisCache(envConf.RedisHost, envConf.RedisPort, envConf.RedisPass, ctx),
+		//middleware.WithInMemoryCache(ctx),
 	))
 
 	webServer.AddHandler("/time/greetings", "GET", timeHandler.GetDateAndGreetings)
