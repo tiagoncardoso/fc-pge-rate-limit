@@ -1,36 +1,115 @@
-Objetivo: Desenvolver um rate limiter em Go que possa ser configurado para limitar o número máximo de requisições por segundo com base em um endereço IP específico ou em um token de acesso.
+## Desafio #07 - Rate Limit
 
-Descrição: O objetivo deste desafio é criar um rate limiter em Go que possa ser utilizado para controlar o tráfego de requisições para um serviço web. O rate limiter deve ser capaz de limitar o número de requisições com base em dois critérios:
+O objetivo deste desafio é criar um rate limiter em Go que possa ser utilizado para controlar o tráfego de requisições para um serviço web. .
 
-Endereço IP: O rate limiter deve restringir o número de requisições recebidas de um único endereço IP dentro de um intervalo de tempo definido.
-Token de Acesso: O rate limiter deve também poderá limitar as requisições baseadas em um token de acesso único, permitindo diferentes limites de tempo de expiração para diferentes tokens. O Token deve ser informado no header no seguinte formato:
-API_KEY: <TOKEN>
-As configurações de limite do token de acesso devem se sobrepor as do IP. Ex: Se o limite por IP é de 10 req/s e a de um determinado token é de 100 req/s, o rate limiter deve utilizar as informações do token.
-Requisitos:
+### Requisitos:
 
-O rate limiter deve poder trabalhar como um middleware que é injetado ao servidor web
-O rate limiter deve permitir a configuração do número máximo de requisições permitidas por segundo.
-O rate limiter deve ter ter a opção de escolher o tempo de bloqueio do IP ou do Token caso a quantidade de requisições tenha sido excedida.
-As configurações de limite devem ser realizadas via variáveis de ambiente ou em um arquivo “.env” na pasta raiz.
-Deve ser possível configurar o rate limiter tanto para limitação por IP quanto por token de acesso.
-O sistema deve responder adequadamente quando o limite é excedido:
-Código HTTP: 429
-Mensagem: you have reached the maximum number of requests or actions allowed within a certain time frame
-Todas as informações de "limiter” devem ser armazenadas e consultadas de um banco de dados Redis. Você pode utilizar docker-compose para subir o Redis.
-Crie uma “strategy” que permita trocar facilmente o Redis por outro mecanismo de persistência.
-A lógica do limiter deve estar separada do middleware.
-Exemplos:
+O rate limiter deve ser capaz de limitar o número de requisições com base em dois critérios:
+ 
+1. **Endereço IP:** O rate limiter deve restringir o número de requisições recebidas de um único endereço IP dentro de um intervalo de tempo definido.
+2. **Token de Acesso:** O rate limiter deve também poderá limitar as requisições baseadas em um token de acesso único, permitindo diferentes limites de tempo de expiração para diferentes tokens. O Token deve ser informado no header no seguinte formato: `API_KEY: <TOKEN>` 
+> As configurações de limite do token de acesso devem se sobrepor as do IP. Ex: Se o limite por IP é de 10 req/s e a de um determinado token é de 100 req/s, o rate limiter deve utilizar as informações do token.
 
-Limitação por IP: Suponha que o rate limiter esteja configurado para permitir no máximo 5 requisições por segundo por IP. Se o IP 192.168.1.1 enviar 6 requisições em um segundo, a sexta requisição deve ser bloqueada.
-Limitação por Token: Se um token abc123 tiver um limite configurado de 10 requisições por segundo e enviar 11 requisições nesse intervalo, a décima primeira deve ser bloqueada.
-Nos dois casos acima, as próximas requisições poderão ser realizadas somente quando o tempo total de expiração ocorrer. Ex: Se o tempo de expiração é de 5 minutos, determinado IP poderá realizar novas requisições somente após os 5 minutos.
-Dicas:
+#### 🗂️ Estrutura do Projeto
+    .
+    ├── cmd                  # Entrypoints da aplicação
+    │    └── app_rl
+    │           └── main.go  ### Entrypoint da aplicação exemplo (que faz uso do rate limiter)
+    ├── config               # helpers para configuração da aplicação (viper)
+    ├── internal
+    │    └── infra           # Implementações de repositórios e conexões com serviços externos
+    │           └── web      ### Funções utilitárias
+    │                ├── handler           ### Handlers utilizados pelos endpoints da aplicação exemplo
+    │                └── webserver.go      ### Implmentação do servidor web
+    ├── pkg                  # Pacotes reutilizáveis utilizados na aplicação
+    │    └── fcrl            # Rate Limiter
+    │           ├── cache       ### Implementações de cache: Redis e Memória
+    │           ├── helpers     ### Funções utilitárias
+    │           ├── middleware  ### Implementações do middleware de rate limit
+    │           ├── rllog       ### Implementações de log para o rate limit
+    │           └── limiter.go  ### Implementação de lógica do limiter
+    ├── test                 # Testes automatizados
+    ├── Dockerfile           # Arquivo de configuração do Docker da aplicação exemplo
+    ├── .env                 # Arquivo de parametrizações globais
+    └── README.md
 
-Teste seu rate limiter sob diferentes condições de carga para garantir que ele funcione conforme esperado em situações de alto tráfego.
-Entrega:
+#### 🧭 Parametrização
 
-O código-fonte completo da implementação.
-Documentação explicando como o rate limiter funciona e como ele pode ser configurado.
-Testes automatizados demonstrando a eficácia e a robustez do rate limiter.
-Utilize docker/docker-compose para que possamos realizar os testes de sua aplicação.
-O servidor web deve responder na porta 8080.
+```dotenv
+# .env
+
+##> Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PWD=password!
+##< Redis
+
+##> Rate Limit
+# Rate Limit Type: Second | Minute | Hour | Day
+RATE_LIMIT_BY=Minute
+
+# Requests Limit
+IP_LIMIT_RATE=4
+TOKEN_LIMIT_RATE=5
+
+# Time in Second | Minute | Hour | Day according to RATE_LIMIT_BY
+IP_WINDOW_TIME=8
+API_TOKEN_WINDOW_TIME=10
+##< Rate Limit
+
+##> App
+APP_PORT=8080
+##< App
+```
+
+#### 🚀 Execução:
+Para executar a aplicação em ambiente local, basta utilizar o docker-compose disponível na raiz do projeto. Para isso, execute o comando abaixo:
+```bash
+$ docker-compose up # -d (para executar em background)
+```
+
+> 💡 **Portas necessárias:**
+> - Aplicação: 8080
+> - Redis: 6379
+
+#### 📝 Endpoints para validação:
+
+```shell
+# Requisição 1 - Sem Token
+
+curl --location 'http://localhost:8080/time/japanese-greetings' \
+--header 'Content-Type: application/json'
+```
+
+```shell
+# Requisição 2 - Com Token
+
+curl --location 'http://localhost:8080/time/greetings' \
+--header 'Content-Type: application/json' \
+--header 'API_KEY: xQxGOkwWAxhlaaHJorRnhMwpZ1q8xAlIFHnOkDoEqtNiB5NdYXINVthDbmQIyAE2UIIbYt1SqQ4Ych0MG9EJLftbulvm6gH5IqO9e18MWTyAwcmQkBD4ZW8OMvRgKxnu'
+```
+
+#### ✍️ Exemplo de utilização do Rate Limiter
+
+```gotemplate
+// new server
+r := chi.NewRouter()
+
+r.Use(middleware.RateLimiter(
+    RateLimitBy,
+    middleware.WithIPRateLimiter(IpLimitRate, IpWindowTime),
+    middleware.WithApiKeyRateLimiter(ApiTokenLimitRate, ApiTokenWindowTime),
+	// Opções de cache (apenas 1 é necessária):
+    middleware.WithRedisCache(rediHost, redisPort, redisPwd, ctx),
+    middleware.WithRedisClient(redisClient, ctx), // *redis.Client
+    middleware.WithMemoryCache(ctx),
+))
+```
+
+#### 🧪 Teste:
+
+Para executar o teste, basta executar o comando abaixo:
+
+```bash
+$ go test -v github.com/tiagoncardoso/fc-pge-rate-limit/test/e2e
+```
