@@ -19,6 +19,7 @@ type RequestGreetingsTestSuite struct {
 }
 
 type RateLimiterControl struct {
+	RateLimitBy       string
 	IpMaxRequests     int
 	IpWindowTime      int
 	ApiKeyMaxRequests int
@@ -28,6 +29,7 @@ type RateLimiterControl struct {
 func (suite *RequestGreetingsTestSuite) SetupSuite() {
 	ctx := context.Background()
 	suite.RateLimiterControl = RateLimiterControl{
+		RateLimitBy:       "Second",
 		IpMaxRequests:     3,
 		IpWindowTime:      5,
 		ApiKeyMaxRequests: 4,
@@ -45,7 +47,7 @@ func (suite *RequestGreetingsTestSuite) SetupSuite() {
 	timeHandler := handler.NewGreetingsHandler(ctx)
 	r := chi.NewRouter()
 	r.Use(middleware.RateLimiter(
-		"Second",
+		suite.RateLimiterControl.RateLimitBy,
 		middleware.WithIPRateLimiter(suite.RateLimiterControl.IpMaxRequests, suite.RateLimiterControl.IpWindowTime),
 		middleware.WithApiKeyRateLimiter(suite.RateLimiterControl.ApiKeyMaxRequests, suite.RateLimiterControl.ApiKeyWindowTime),
 		middleware.WithRedisCacheClient(redisClient, ctx),
