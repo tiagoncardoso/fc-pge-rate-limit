@@ -50,7 +50,7 @@ RATE_LIMIT_BY=Minute
 
 # Requests Limit
 IP_LIMIT_RATE=4
-TOKEN_LIMIT_RATE=5
+API_TOKEN_LIMIT_RATE=5
 
 # Time in Second | Minute | Hour | Day according to RATE_LIMIT_BY
 IP_WINDOW_TIME=8
